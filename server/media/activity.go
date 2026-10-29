@@ -3,6 +3,7 @@ package media
 const (
 	SourcePlex     = "plex"
 	SourceJellyfin = "jellyfin"
+	SourceSubsonic = "subsonic"
 )
 
 // Activity is a media server agnostic representation of a playback session

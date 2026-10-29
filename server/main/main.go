@@ -14,6 +14,7 @@ import (
 	"drpp/server/logger"
 	"drpp/server/mediator"
 	"drpp/server/plex"
+	"drpp/server/subsonic"
 	"drpp/web"
 	"errors"
 	"fmt"
@@ -116,8 +117,14 @@ func main() {
 			}
 			sources = append(sources, jellyfin.NewService(server, fatalShutdown))
 		}
+		for _, server := range cfg.Subsonic.Servers {
+			if !server.Enabled {
+				continue
+			}
+			sources = append(sources, subsonic.NewService(server, fatalShutdown))
+		}
 		if len(sources) == 0 {
-			logger.Warning("No active Plex or Jellyfin servers found. Add a Plex user and server or a Jellyfin server to finish setting up.")
+			logger.Warning("No active media servers found. Add a Plex, Jellyfin or Navidrome/Subsonic server to finish setting up.")
 		}
 		var imageService mediator.ImageService
 		switch {

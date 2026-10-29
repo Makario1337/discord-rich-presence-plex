@@ -6,6 +6,7 @@ export interface Config {
 	images: Images;
 	plex: Plex;
 	jellyfin: Jellyfin;
+	subsonic: Subsonic;
 }
 
 export interface Web {
@@ -134,6 +135,24 @@ export interface JellyfinServer {
 	listenForUser: string;
 	blacklistedLibraries: string[];
 	whitelistedLibraries: string[];
+	pollIntervalSeconds: number;
+	requestTimeoutSeconds: number;
+	retryIntervalSeconds: number;
+	maxRetriesBeforeExit: number;
+}
+
+export interface Subsonic {
+	servers: SubsonicServer[];
+}
+
+export interface SubsonicServer {
+	enabled: boolean;
+	name: string;
+	url: string;
+	username: string;
+	password: string;
+	apiKey: string;
+	listenForUser: string;
 	pollIntervalSeconds: number;
 	requestTimeoutSeconds: number;
 	retryIntervalSeconds: number;

@@ -19,6 +19,7 @@ type Config struct {
 	Images   Images   `yaml:"images" json:"images"`
 	Plex     Plex     `yaml:"plex" json:"plex"`
 	Jellyfin Jellyfin `yaml:"jellyfin" json:"jellyfin"`
+	Subsonic Subsonic `yaml:"subsonic" json:"subsonic"`
 }
 
 type Web struct {
@@ -147,6 +148,24 @@ type JellyfinServer struct {
 	ListenForUser         string        `yaml:"listenForUser" json:"listenForUser"`
 	BlacklistedLibraries  []string      `yaml:"blacklistedLibraries" json:"blacklistedLibraries" validate:"unique,dive,required"`
 	WhitelistedLibraries  []string      `yaml:"whitelistedLibraries" json:"whitelistedLibraries" validate:"unique,dive,required"`
+	PollIntervalSeconds   int           `yaml:"pollIntervalSeconds" json:"pollIntervalSeconds" validate:"min=1"`
+	RequestTimeoutSeconds int           `yaml:"requestTimeoutSeconds" json:"requestTimeoutSeconds" validate:"min=1"`
+	RetryIntervalSeconds  int           `yaml:"retryIntervalSeconds" json:"retryIntervalSeconds" validate:"min=1"`
+	MaxRetriesBeforeExit  int           `yaml:"maxRetriesBeforeExit" json:"maxRetriesBeforeExit" validate:"min=-1"`
+}
+
+type Subsonic struct {
+	Servers []SubsonicServer `yaml:"servers" json:"servers" validate:"dive"`
+}
+
+type SubsonicServer struct {
+	Enabled               bool          `yaml:"enabled" json:"enabled"`
+	Name                  string        `yaml:"name" json:"name"`
+	Url                   string        `yaml:"url" json:"url" validate:"required,http_url"`
+	Username              string        `yaml:"username" json:"username"`
+	Password              crypto.String `yaml:"password" json:"password"`
+	ApiKey                crypto.String `yaml:"apiKey" json:"apiKey"`
+	ListenForUser         string        `yaml:"listenForUser" json:"listenForUser"`
 	PollIntervalSeconds   int           `yaml:"pollIntervalSeconds" json:"pollIntervalSeconds" validate:"min=1"`
 	RequestTimeoutSeconds int           `yaml:"requestTimeoutSeconds" json:"requestTimeoutSeconds" validate:"min=1"`
 	RetryIntervalSeconds  int           `yaml:"retryIntervalSeconds" json:"retryIntervalSeconds" validate:"min=1"`

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"drpp/server/logger"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -12,6 +13,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // TODO: https://github.com/golang/go/issues/40173
@@ -80,6 +83,10 @@ func GetPngBytes(ctx context.Context, sourceUrl string, fitInSquare bool, maxSiz
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		if urlErr, ok := errors.AsType[*url.Error](err); ok {
+			// Some sources pass credentials as query parameters, so keep them out of logs
+			urlErr.URL, _, _ = strings.Cut(urlErr.URL, "?")
+		}
 		return nil, fmt.Errorf("fetch image: %w", err)
 	}
 	defer resp.Body.Close()

@@ -124,7 +124,13 @@ function Form({ config }: { config: Config }) {
 
 	const noPlexServers = useWatch({ control, name: "plex.users", compute: (users) => users.length === 0 || users.every((user) => user.servers.length === 0) });
 	const noJellyfinServers = useWatch({ control, name: "jellyfin.servers", compute: (servers) => servers.length === 0 });
-	const noServers = noPlexServers && noJellyfinServers;
+	const noSubsonicServers = useWatch({ control, name: "subsonic.servers", compute: (servers) => servers.length === 0 });
+	const noServers = noPlexServers && noJellyfinServers && noSubsonicServers;
+
+	function addSubsonicServer() {
+		const server = getDefaultValueForSchema(configSchema.fields.subsonic.fields.servers.itemSchema);
+		setValue("subsonic.servers", [...getValues("subsonic.servers"), server], { shouldDirty: true });
+	}
 
 	return (
 		<Flex component="form" direction="column" onSubmit={submitForm} w="50%">
@@ -144,7 +150,7 @@ function Form({ config }: { config: Config }) {
 								<IconAlertTriangle color="orange" size={16} style={{ marginTop: 2 }} />
 								<Text fw={500}>Setup Incomplete</Text>
 							</Flex>
-							<Text size="sm">Add a Plex user and server or a Jellyfin server to finish setting up.</Text>
+							<Text size="sm">Add a Plex, Jellyfin or Navidrome/Subsonic server to finish setting up.</Text>
 						</Flex>
 						<Flex gap="sm">
 							<Button leftSection={<IconPlus size={16} />} onClick={initiatePlexAuth}>
@@ -152,6 +158,9 @@ function Form({ config }: { config: Config }) {
 							</Button>
 							<Button leftSection={<IconPlus size={16} />} onClick={initiateJellyfinAuth}>
 								Add Jellyfin Server
+							</Button>
+							<Button leftSection={<IconPlus size={16} />} onClick={addSubsonicServer}>
+								Add Navidrome/Subsonic Server
 							</Button>
 						</Flex>
 					</Flex>

@@ -154,7 +154,7 @@ func formatDuration(milliseconds int64, format string) string {
 	return fmt.Sprintf(format, hours, minutes, seconds)
 }
 
-// Accepts a slice of strings, fmt.Stringer values, so that it works with genres from the normalised metadata as well as raw Plex/Jellyfin items
+// Accepts a slice of strings, fmt.Stringer values or objects with a name, so that it works with genres from the normalised metadata as well as raw Plex/Jellyfin/Subsonic items
 func formatGenres(genres any, delimiter string, maxGenres int) string {
 	value := reflect.ValueOf(genres)
 	if value.Kind() != reflect.Slice {
@@ -168,6 +168,8 @@ func formatGenres(genres any, delimiter string, maxGenres int) string {
 			name = genre
 		case fmt.Stringer:
 			name = genre.String()
+		case map[string]any: // e.g. raw Subsonic genres
+			name, _ = genre["name"].(string)
 		default:
 			continue
 		}

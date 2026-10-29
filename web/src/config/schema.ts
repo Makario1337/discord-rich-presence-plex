@@ -442,6 +442,84 @@ export const configSchema: ObjectSchema<Config> = {
 				},
 			},
 		},
+		subsonic: {
+			type: "object",
+			label: "Navidrome / Subsonic Settings",
+			description: "Music servers implementing the (Open)Subsonic API, such as Navidrome, Gonic or Airsonic. Playback position and pause state require the OpenSubsonic playbackReport extension (supported by recent Navidrome versions and clients); otherwise the position is estimated and pausing isn't detected.",
+			fields: {
+				servers: {
+					type: "array",
+					label: "Servers",
+					itemSchema: {
+						type: "object",
+						label: "Server",
+						fields: {
+							enabled: {
+								type: "boolean",
+								label: "Enabled",
+								defaultValue: true,
+								hideDefaultValue: true,
+							},
+							name: {
+								type: "string",
+								label: "Name",
+								description: "Name for this server (for your reference and log messages)",
+							},
+							url: {
+								type: "string",
+								label: "URL",
+								description: "URL of the server. Example: http://127.0.0.1:4533",
+							},
+							username: {
+								type: "string",
+								label: "Username",
+								description: "Not needed when using an API key",
+							},
+							password: {
+								type: "string",
+								label: "Password",
+								masked: true,
+							},
+							apiKey: {
+								type: "string",
+								label: "API Key",
+								description: "OpenSubsonic API key, used instead of the username and password if set",
+								masked: true,
+							},
+							listenForUser: {
+								type: "string",
+								label: "Target Username",
+								description: "Only tracks played by this username will be processed. The signed-in user's username is used if this is empty.",
+							},
+							pollIntervalSeconds: {
+								type: "number",
+								label: "Poll Interval",
+								description: "Seconds between now playing status checks",
+								defaultValue: 2,
+							},
+							requestTimeoutSeconds: {
+								type: "number",
+								label: "Request Timeout",
+								description: "Seconds to wait before giving up on requests to this server",
+								defaultValue: 10,
+							},
+							retryIntervalSeconds: {
+								type: "number",
+								label: "Retry Interval",
+								description: "Seconds to wait before retrying connection after a failure",
+								defaultValue: 5,
+							},
+							maxRetriesBeforeExit: {
+								type: "number",
+								label: "Max Retries Before Exit",
+								description: "The maximum number of connection retries before the application exits. Use -1 to retry indefinitely.",
+								defaultValue: -1,
+							},
+						},
+					},
+				},
+			},
+		},
 	},
 };
 
