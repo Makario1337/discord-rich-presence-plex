@@ -12,12 +12,13 @@ import (
 const currentVersion = 1
 
 type Config struct {
-	Version int     `yaml:"version" json:"version"`
-	Web     Web     `yaml:"web" json:"web"`
-	Logger  Logger  `yaml:"logger" json:"logger"`
-	Discord Discord `yaml:"discord" json:"discord"`
-	Images  Images  `yaml:"images" json:"images"`
-	Plex    Plex    `yaml:"plex" json:"plex"`
+	Version  int      `yaml:"version" json:"version"`
+	Web      Web      `yaml:"web" json:"web"`
+	Logger   Logger   `yaml:"logger" json:"logger"`
+	Discord  Discord  `yaml:"discord" json:"discord"`
+	Images   Images   `yaml:"images" json:"images"`
+	Plex     Plex     `yaml:"plex" json:"plex"`
+	Jellyfin Jellyfin `yaml:"jellyfin" json:"jellyfin"`
 }
 
 type Web struct {
@@ -131,6 +132,25 @@ type Server struct {
 	RequestTimeoutSeconds int      `yaml:"requestTimeoutSeconds" json:"requestTimeoutSeconds" validate:"min=1"`
 	RetryIntervalSeconds  int      `yaml:"retryIntervalSeconds" json:"retryIntervalSeconds" validate:"min=1"`
 	MaxRetriesBeforeExit  int      `yaml:"maxRetriesBeforeExit" json:"maxRetriesBeforeExit" validate:"min=-1"`
+}
+
+type Jellyfin struct {
+	Servers []JellyfinServer `yaml:"servers" json:"servers" validate:"dive"`
+}
+
+type JellyfinServer struct {
+	Enabled               bool          `yaml:"enabled" json:"enabled"`
+	Name                  string        `yaml:"name" json:"name"`
+	Url                   string        `yaml:"url" json:"url" validate:"required,http_url"`
+	Token                 crypto.String `yaml:"token" json:"token" validate:"required"`
+	DeviceId              string        `yaml:"deviceId" json:"deviceId"`
+	ListenForUser         string        `yaml:"listenForUser" json:"listenForUser"`
+	BlacklistedLibraries  []string      `yaml:"blacklistedLibraries" json:"blacklistedLibraries" validate:"unique,dive,required"`
+	WhitelistedLibraries  []string      `yaml:"whitelistedLibraries" json:"whitelistedLibraries" validate:"unique,dive,required"`
+	PollIntervalSeconds   int           `yaml:"pollIntervalSeconds" json:"pollIntervalSeconds" validate:"min=1"`
+	RequestTimeoutSeconds int           `yaml:"requestTimeoutSeconds" json:"requestTimeoutSeconds" validate:"min=1"`
+	RetryIntervalSeconds  int           `yaml:"retryIntervalSeconds" json:"retryIntervalSeconds" validate:"min=1"`
+	MaxRetriesBeforeExit  int           `yaml:"maxRetriesBeforeExit" json:"maxRetriesBeforeExit" validate:"min=-1"`
 }
 
 var validate = validator.New(validator.WithRequiredStructEnabled())

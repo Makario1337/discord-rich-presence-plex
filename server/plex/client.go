@@ -3,12 +3,14 @@ package plex
 import (
 	"context"
 	"drpp/server/logger"
+	"drpp/server/media"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -158,8 +160,37 @@ type Genre struct {
 	Tag string `json:"tag"`
 }
 
+func (g Genre) String() string {
+	return g.Tag
+}
+
 type Guid struct {
 	Id string `json:"id"`
+}
+
+func (m *Metadata) toMedia(isTrack bool) media.Metadata {
+	result := media.Metadata{
+		Title:      m.Title,
+		Year:       m.Year,
+		Index:      m.Index,
+		Thumb:      m.Thumb,
+		DurationMs: m.DurationMs,
+	}
+	if isTrack {
+		result.Artist = m.OriginalTitle
+	}
+	for _, genre := range m.Genres {
+		result.Genres = append(result.Genres, genre.Tag)
+	}
+	for _, guid := range m.Guids {
+		if provider, id, ok := strings.Cut(guid.Id, "://"); ok {
+			if result.ProviderIds == nil {
+				result.ProviderIds = make(map[string]string)
+			}
+			result.ProviderIds[provider] = id
+		}
+	}
+	return result
 }
 
 func (c *Client) GetSessions(ctx context.Context) ([]Metadata, error) {

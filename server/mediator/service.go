@@ -7,7 +7,7 @@ import (
 	"drpp/server/discord"
 	"drpp/server/images"
 	"drpp/server/logger"
-	"drpp/server/plex"
+	"drpp/server/media"
 	"encoding/json/v2"
 	"fmt"
 	"net/url"
@@ -23,9 +23,14 @@ type ImageService interface {
 	Lifespan() time.Duration
 }
 
+type ActivitySource interface {
+	Start(callback func(activity *media.Activity))
+	Stop()
+}
+
 type Service struct {
 	discordService *discord.Service
-	plexServices   []*plex.Service
+	sources        []ActivitySource
 	cacheService   *cache.Service
 	imageService   ImageService
 	imagesConfig   config.Images
@@ -36,7 +41,7 @@ type Service struct {
 	stateChangedAtMs int64
 	stopTimer        *time.Timer
 
-	activityCh chan *plex.Activity
+	activityCh chan *media.Activity
 	mu         sync.Mutex
 	cancel     context.CancelFunc
 	wg         sync.WaitGroup
@@ -44,7 +49,7 @@ type Service struct {
 
 func NewService(
 	discordService *discord.Service,
-	plexServices []*plex.Service,
+	sources []ActivitySource,
 	cacheService *cache.Service,
 	imageService ImageService,
 	imagesConfig config.Images,
@@ -52,7 +57,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		discordService: discordService,
-		plexServices:   plexServices,
+		sources:        sources,
 		cacheService:   cacheService,
 		imageService:   imageService,
 		imagesConfig:   imagesConfig,
@@ -66,9 +71,9 @@ func (s *Service) Start() {
 	if s.cancel != nil {
 		return
 	}
-	s.activityCh = make(chan *plex.Activity, 1)
-	for _, plexService := range s.plexServices {
-		plexService.Start(s.plexCallback)
+	s.activityCh = make(chan *media.Activity, 1)
+	for _, source := range s.sources {
+		source.Start(s.sourceCallback)
 	}
 	var ctx context.Context
 	ctx, s.cancel = context.WithCancel(context.Background())
@@ -103,7 +108,7 @@ func (s *Service) Start() {
 				handlerWg.Add(1)
 				handlerCtx, cancelHandler = context.WithCancel(ctx) //nolint:fatcontext
 				go func(handlerCtx context.Context, cancelHandler context.CancelFunc) {
-					s.handlePlexActivity(handlerCtx, activity)
+					s.handleActivity(handlerCtx, activity)
 					cancelHandler()
 					handlerWg.Done()
 				}(handlerCtx, cancelHandler)
@@ -120,8 +125,8 @@ func (s *Service) Stop() {
 	}
 	s.cancel()
 	s.cancel = nil
-	for _, plexService := range s.plexServices {
-		plexService.Stop()
+	for _, source := range s.sources {
+		source.Stop()
 	}
 	close(s.activityCh)
 	s.wg.Wait()
@@ -155,7 +160,7 @@ func (s *Service) clearStopTimer() {
 	s.stopTimer = nil
 }
 
-func (s *Service) plexCallback(activity *plex.Activity) {
+func (s *Service) sourceCallback(activity *media.Activity) {
 	// Drain any stale pending activity
 	select {
 	case <-s.activityCh:
@@ -168,7 +173,7 @@ func (s *Service) plexCallback(activity *plex.Activity) {
 	}
 }
 
-func (s *Service) handlePlexActivity(ctx context.Context, activity *plex.Activity) {
+func (s *Service) handleActivity(ctx context.Context, activity *media.Activity) {
 	activityJson, _ := json.Marshal(activity)
 	logger.Info("Activity: %s", activityJson)
 	s.stateMu.Lock()

@@ -3,8 +3,9 @@ package mediator
 import (
 	"bytes"
 	"drpp/server/logger"
-	"drpp/server/plex"
+	"drpp/server/media"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -13,24 +14,18 @@ import (
 	"unicode"
 )
 
-func buildTemplateData(activity *plex.Activity) map[string]any {
+func buildTemplateData(activity *media.Activity) map[string]any {
 	data := make(map[string]any)
+	data["Source"] = activity.Source
 	data["MediaType"] = activity.MediaType
 	data["State"] = activity.State
-	data["LibraryName"] = strings.TrimSpace(activity.Item.LibrarySectionTitle)
+	data["LibraryName"] = strings.TrimSpace(activity.LibraryName)
 	data["ElapsedDurationMs"] = activity.ElapsedDurationMs
-	addGuidUrls := func(guids []plex.Guid, prefix string) {
-		guidMap := make(map[string]string)
-		for _, guid := range guids {
-			parts := strings.SplitN(guid.Id, "://", 2)
-			if len(parts) == 2 {
-				guidMap[parts[0]] = parts[1]
-			}
-		}
-		if id, ok := guidMap["imdb"]; ok {
+	addProviderUrls := func(providerIds map[string]string, prefix string) {
+		if id, ok := providerIds["imdb"]; ok {
 			data[prefix+"ImdbUrl"] = "https://www.imdb.com/title/" + id
 		}
-		if id, ok := guidMap["tmdb"]; ok {
+		if id, ok := providerIds["tmdb"]; ok {
 			var tmdbPathSegment, traktIdType string
 			if activity.MediaType == "movie" { //nolint:gocritic
 				tmdbPathSegment = "movie"
@@ -48,7 +43,7 @@ func buildTemplateData(activity *plex.Activity) map[string]any {
 				data[prefix+"LetterboxdUrl"] = "https://letterboxd.com/tmdb/" + id
 			}
 		}
-		if id, ok := guidMap["tvdb"]; ok {
+		if id, ok := providerIds["tvdb"]; ok {
 			var tvdbPathSegment string
 			if activity.MediaType == "movie" { //nolint:gocritic
 				tvdbPathSegment = "movie"
@@ -59,7 +54,7 @@ func buildTemplateData(activity *plex.Activity) map[string]any {
 			}
 			data[prefix+"TvdbUrl"] = "https://www.thetvdb.com/dereferrer/" + tvdbPathSegment + "/" + id
 		}
-		if id, ok := guidMap["mbid"]; ok {
+		if id, ok := providerIds["mbid"]; ok {
 			data[prefix+"MusicBrainzUrl"] = "https://musicbrainz.org/" + strings.ToLower(prefix) + "/" + id
 		}
 	}
@@ -70,7 +65,7 @@ func buildTemplateData(activity *plex.Activity) map[string]any {
 		data["Duration"] = formatDuration(activity.Item.DurationMs, "")
 		data["Genres"] = formatGenres(activity.Item.Genres, ", ", 3)
 		data["Poster"] = activity.Item.Thumb
-		addGuidUrls(activity.Item.Guids, "")
+		addProviderUrls(activity.Item.ProviderIds, "")
 	case "episode":
 		data["ShowTitle"] = stripYearSuffix(strings.TrimSpace(activity.GrandparentItem.Title))
 		data["ShowYear"] = activity.GrandparentItem.Year
@@ -80,11 +75,11 @@ func buildTemplateData(activity *plex.Activity) map[string]any {
 		data["SeasonNumber"] = activity.ParentItem.Index
 		data["EpisodeNumber"] = activity.Item.Index
 		data["EpisodeTitle"] = strings.TrimSpace(activity.Item.Title)
-		addGuidUrls(activity.Item.Guids, "Episode")
-		addGuidUrls(activity.GrandparentItem.Guids, "Show")
+		addProviderUrls(activity.Item.ProviderIds, "Episode")
+		addProviderUrls(activity.GrandparentItem.ProviderIds, "Show")
 	case "track":
 		data["Title"] = strings.TrimSpace(activity.Item.Title)
-		artist := strings.TrimSpace(activity.Item.OriginalTitle)
+		artist := strings.TrimSpace(activity.Item.Artist)
 		if artist != "" {
 			data["Artist"] = artist
 		} else {
@@ -98,21 +93,21 @@ func buildTemplateData(activity *plex.Activity) map[string]any {
 		data["Duration"] = formatDuration(activity.Item.DurationMs, "")
 		data["AlbumGenres"] = formatGenres(activity.ParentItem.Genres, ", ", 3)
 		data["ArtistGenres"] = formatGenres(activity.GrandparentItem.Genres, ", ", 3)
-		addGuidUrls(activity.Item.Guids, "Track")
-		addGuidUrls(activity.ParentItem.Guids, "Album")
-		addGuidUrls(activity.GrandparentItem.Guids, "Artist")
+		addProviderUrls(activity.Item.ProviderIds, "Track")
+		addProviderUrls(activity.ParentItem.ProviderIds, "Album")
+		addProviderUrls(activity.GrandparentItem.ProviderIds, "Artist")
 	case "clip":
 		data["Title"] = strings.TrimSpace(activity.Item.Title)
 		data["Duration"] = formatDuration(activity.Item.DurationMs, "")
 		data["Poster"] = activity.Item.Thumb
 	case "liveEpisode":
-		data["ShowTitle"] = strings.TrimSpace(activity.Item.GrandparentTitle)
+		data["ShowTitle"] = strings.TrimSpace(activity.GrandparentItem.Title)
 		data["EpisodeTitle"] = strings.TrimSpace(activity.Item.Title)
-		data["ShowPoster"] = activity.Item.GrandparentThumb
+		data["ShowPoster"] = activity.GrandparentItem.Thumb
 	}
-	data["Item"] = activity.Item
-	data["ParentItem"] = activity.ParentItem
-	data["GrandparentItem"] = activity.GrandparentItem
+	data["Item"] = activity.RawItem
+	data["ParentItem"] = activity.RawParentItem
+	data["GrandparentItem"] = activity.RawGrandparentItem
 	return data
 }
 
@@ -159,10 +154,24 @@ func formatDuration(milliseconds int64, format string) string {
 	return fmt.Sprintf(format, hours, minutes, seconds)
 }
 
-func formatGenres(genres []plex.Genre, delimiter string, maxGenres int) string {
+// Accepts a slice of strings, fmt.Stringer values, so that it works with genres from the normalised metadata as well as raw Plex/Jellyfin items
+func formatGenres(genres any, delimiter string, maxGenres int) string {
+	value := reflect.ValueOf(genres)
+	if value.Kind() != reflect.Slice {
+		return ""
+	}
 	var genreNames []string
-	for _, genre := range genres {
-		genreNames = append(genreNames, strings.TrimSpace(genre.Tag))
+	for i := range value.Len() {
+		var name string
+		switch genre := value.Index(i).Interface().(type) {
+		case string:
+			name = genre
+		case fmt.Stringer:
+			name = genre.String()
+		default:
+			continue
+		}
+		genreNames = append(genreNames, strings.TrimSpace(name))
 		if len(genreNames) == maxGenres {
 			break
 		}

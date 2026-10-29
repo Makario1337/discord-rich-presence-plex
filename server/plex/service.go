@@ -3,6 +3,8 @@ package plex
 import (
 	"context"
 	"drpp/server/config"
+	"drpp/server/logger"
+	"drpp/server/media"
 	"errors"
 	"fmt"
 	"slices"
@@ -13,21 +15,11 @@ import (
 
 const connCheckInterval = 1 * time.Minute
 
-type Activity struct {
-	MediaType         string                                            `json:"mediaType"`
-	State             string                                            `json:"state"`
-	ElapsedDurationMs int64                                             `json:"elapsedDurationMs"`
-	Item              Metadata                                          `json:"item"`
-	ParentItem        Metadata                                          `json:"parentItem,omitzero"`
-	GrandparentItem   Metadata                                          `json:"grandparentItem,omitzero"`
-	GetThumbUrl       func(endpoint string) (string, map[string]string) `json:"-"`
-}
-
 type Service struct {
 	userToken     string
 	serverConfig  config.Server
 	fatalShutdown context.CancelFunc
-	logger        *prefixedLogger
+	logger        *logger.Prefixed
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -39,11 +31,11 @@ func NewService(userToken string, serverConfig config.Server, fatalShutdown cont
 		userToken:     userToken,
 		serverConfig:  serverConfig,
 		fatalShutdown: fatalShutdown,
-		logger:        newPrefixedLogger(serverConfig.Name),
+		logger:        logger.NewPrefixed(serverConfig.Name),
 	}
 }
 
-func (s *Service) Start(callback func(activity *Activity)) {
+func (s *Service) Start(callback func(activity *media.Activity)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.cancel != nil {
@@ -92,7 +84,7 @@ func (s *Service) Stop() {
 	s.logger.Info("Disconnected")
 }
 
-func (s *Service) run(ctx context.Context, callback func(activity *Activity)) error {
+func (s *Service) run(ctx context.Context, callback func(activity *media.Activity)) error {
 
 	client := NewClient("", s.userToken, time.Duration(s.serverConfig.RequestTimeoutSeconds)*time.Second)
 
@@ -256,20 +248,29 @@ func (s *Service) run(ctx context.Context, callback func(activity *Activity)) er
 			}
 		}
 
-		activity := &Activity{
+		activity := &media.Activity{
+			Source:            media.SourcePlex,
 			MediaType:         mediaType,
 			State:             notification.State,
 			ElapsedDurationMs: notification.ViewOffsetMs,
-			Item:              *item,
+			LibraryName:       libraryName,
+			Item:              item.toMedia(mediaType == "track"),
+			RawItem:           *item,
 			GetThumbUrl:       client.GetThumbUrl,
 		}
 		parentItem := getItem(item.ParentRatingKey, "parent")
 		if parentItem != nil {
-			activity.ParentItem = *parentItem
+			activity.ParentItem = parentItem.toMedia(false)
+			activity.RawParentItem = *parentItem
 		}
 		grandparentItem := getItem(item.GrandparentRatingKey, "grandparent")
 		if grandparentItem != nil {
-			activity.GrandparentItem = *grandparentItem
+			activity.GrandparentItem = grandparentItem.toMedia(false)
+			activity.RawGrandparentItem = *grandparentItem
+		}
+		if mediaType == "liveEpisode" {
+			activity.GrandparentItem.Title = item.GrandparentTitle
+			activity.GrandparentItem.Thumb = item.GrandparentThumb
 		}
 		callback(activity)
 

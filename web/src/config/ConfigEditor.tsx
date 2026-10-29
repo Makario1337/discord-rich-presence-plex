@@ -5,6 +5,9 @@ import { FormFields } from "@/config/FormFields";
 import { configSchema } from "@/config/schema";
 import { TemplateModalProvider } from "@/config/TemplateModalProvider";
 import { type Config } from "@/config/types";
+import { type JellyfinAuthResult } from "@/jellyfin/api";
+import { useJellyfinAuth } from "@/jellyfin/JellyfinAuthContext";
+import { JellyfinAuthProvider } from "@/jellyfin/JellyfinAuthProvider";
 import { usePlexAuth } from "@/plex/PlexAuthContext";
 import { PlexAuthProvider } from "@/plex/PlexAuthProvider";
 import { Alert, Button, Divider, Flex, Paper, Skeleton, Text, Title } from "@mantine/core";
@@ -20,9 +23,11 @@ export function ConfigEditor() {
 	});
 	return config.data ? (
 		<PlexAuthProvider>
-			<TemplateModalProvider>
-				<Form config={config.data} />
-			</TemplateModalProvider>
+			<JellyfinAuthProvider>
+				<TemplateModalProvider>
+					<Form config={config.data} />
+				</TemplateModalProvider>
+			</JellyfinAuthProvider>
 		</PlexAuthProvider>
 	) : config.isError ? (
 		<Alert color="red" icon={<IconInfoCircle />} radius={0} title="Failed to fetch configuration" variant="light" w="50%">
@@ -100,7 +105,26 @@ function Form({ config }: { config: Config }) {
 		plexAuth(addUser);
 	}
 
-	const noServers = useWatch({ control, name: "plex.users", compute: (users) => users.length === 0 || users.every((user) => user.servers.length === 0) });
+	function addJellyfinServer(result: JellyfinAuthResult) {
+		const servers = getValues("jellyfin.servers");
+		const server = getDefaultValueForSchema(configSchema.fields.jellyfin.fields.servers.itemSchema);
+		server.name = result.serverName;
+		server.url = result.url;
+		server.token = result.token;
+		server.deviceId = result.deviceId;
+		setValue("jellyfin.servers", [...servers, server], { shouldDirty: true });
+		void submitForm();
+	}
+
+	const jellyfinAuth = useJellyfinAuth();
+
+	function initiateJellyfinAuth() {
+		jellyfinAuth(addJellyfinServer);
+	}
+
+	const noPlexServers = useWatch({ control, name: "plex.users", compute: (users) => users.length === 0 || users.every((user) => user.servers.length === 0) });
+	const noJellyfinServers = useWatch({ control, name: "jellyfin.servers", compute: (servers) => servers.length === 0 });
+	const noServers = noPlexServers && noJellyfinServers;
 
 	return (
 		<Flex component="form" direction="column" onSubmit={submitForm} w="50%">
@@ -120,15 +144,21 @@ function Form({ config }: { config: Config }) {
 								<IconAlertTriangle color="orange" size={16} style={{ marginTop: 2 }} />
 								<Text fw={500}>Setup Incomplete</Text>
 							</Flex>
-							<Text size="sm">Add a Plex user and server to finish setting up.</Text>
+							<Text size="sm">Add a Plex user and server or a Jellyfin server to finish setting up.</Text>
 						</Flex>
-						<Button leftSection={<IconPlus size={16} />} onClick={initiatePlexAuth}>
-							Add User
-						</Button>
+						<Flex gap="sm">
+							<Button leftSection={<IconPlus size={16} />} onClick={initiatePlexAuth}>
+								Add Plex User
+							</Button>
+							<Button leftSection={<IconPlus size={16} />} onClick={initiateJellyfinAuth}>
+								Add Jellyfin Server
+							</Button>
+						</Flex>
 					</Flex>
 				</Paper>
 			)}
 			<button id="start-plex-auth" onClick={initiatePlexAuth} style={{ display: "none" }} type="button" />
+			<button id="start-jellyfin-auth" onClick={initiateJellyfinAuth} style={{ display: "none" }} type="button" />
 			<Divider />
 			<FormFields control={control} />
 		</Flex>

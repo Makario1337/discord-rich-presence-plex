@@ -5,6 +5,7 @@ export interface Config {
 	discord: Discord;
 	images: Images;
 	plex: Plex;
+	jellyfin: Jellyfin;
 }
 
 export interface Web {
@@ -115,6 +116,25 @@ export interface Server {
 	listenForUser: string;
 	blacklistedLibraries: string[];
 	whitelistedLibraries: string[];
+	requestTimeoutSeconds: number;
+	retryIntervalSeconds: number;
+	maxRetriesBeforeExit: number;
+}
+
+export interface Jellyfin {
+	servers: JellyfinServer[];
+}
+
+export interface JellyfinServer {
+	enabled: boolean;
+	name: string;
+	url: string;
+	token: string;
+	deviceId: string;
+	listenForUser: string;
+	blacklistedLibraries: string[];
+	whitelistedLibraries: string[];
+	pollIntervalSeconds: number;
 	requestTimeoutSeconds: number;
 	retryIntervalSeconds: number;
 	maxRetriesBeforeExit: number;

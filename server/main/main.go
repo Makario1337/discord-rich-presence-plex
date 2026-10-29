@@ -10,6 +10,7 @@ import (
 	"drpp/server/images/imgbb"
 	"drpp/server/images/imgur"
 	"drpp/server/images/litterbox"
+	"drpp/server/jellyfin"
 	"drpp/server/logger"
 	"drpp/server/mediator"
 	"drpp/server/plex"
@@ -40,6 +41,8 @@ func main() {
 	}
 
 	parseFlags()
+
+	jellyfin.ClientVersion = version
 
 	if logFilePath != "" {
 		if err := logger.SetLogFile(logFilePath); err != nil {
@@ -76,6 +79,7 @@ func main() {
 		if !disableWebUi && setupServer {
 			server = api.NewServer(shutdownCtx, fmt.Sprintf("%s:%d", cfg.Web.BindAddress, cfg.Web.BindPort), web.BuildOutput, devMode, cfg.Web.AllowedNetworks, cfg.Web.TrustedProxies)
 			configController.RegisterRoutes(server)
+			jellyfin.NewController().RegisterRoutes(server)
 			server.RegisterCustomRoute(logger.SseHandler, http.MethodGet, "logs")
 			go func(server *api.Server) {
 				if err := server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -94,7 +98,7 @@ func main() {
 			}(server)
 		}
 		discordService := discord.NewService(cfg.Discord.ClientId, cfg.Discord.IpcPipeNumber, cfg.Discord.RateLimit, cfg.Discord.IpcTimeoutSeconds)
-		var plexServices []*plex.Service
+		var sources []mediator.ActivitySource
 		for _, user := range cfg.Plex.Users {
 			if !user.Enabled {
 				continue
@@ -103,11 +107,17 @@ func main() {
 				if !server.Enabled {
 					continue
 				}
-				plexServices = append(plexServices, plex.NewService(user.Token.Value(), server, fatalShutdown))
+				sources = append(sources, plex.NewService(user.Token.Value(), server, fatalShutdown))
 			}
 		}
-		if len(plexServices) == 0 {
-			logger.Warning("No active Plex servers found. Add a Plex user and server to finish setting up.")
+		for _, server := range cfg.Jellyfin.Servers {
+			if !server.Enabled {
+				continue
+			}
+			sources = append(sources, jellyfin.NewService(server, fatalShutdown))
+		}
+		if len(sources) == 0 {
+			logger.Warning("No active Plex or Jellyfin servers found. Add a Plex user and server or a Jellyfin server to finish setting up.")
 		}
 		var imageService mediator.ImageService
 		switch {
@@ -122,7 +132,7 @@ func main() {
 		}
 		mediatorService = mediator.NewService(
 			discordService,
-			plexServices,
+			sources,
 			cacheService,
 			imageService,
 			cfg.Images,

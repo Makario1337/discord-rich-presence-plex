@@ -98,7 +98,7 @@ export const configSchema: ObjectSchema<Config> = {
 				idleTimeoutSeconds: {
 					type: "number",
 					label: "Idle Timeout",
-					description: "Seconds to wait before clearing Rich Presence when no activity is detected (when Plex unexpectedly stops sending updates)",
+					description: "Seconds to wait before clearing Rich Presence when no activity is detected (when the media server unexpectedly stops sending updates)",
 					defaultValue: 25,
 				},
 				displayRules: {
@@ -352,6 +352,96 @@ export const configSchema: ObjectSchema<Config> = {
 				},
 			},
 		},
+		jellyfin: {
+			type: "object",
+			label: "Jellyfin Settings",
+			fields: {
+				servers: {
+					type: "array",
+					label: "Servers",
+					itemSchema: {
+						type: "object",
+						label: "Server",
+						fields: {
+							enabled: {
+								type: "boolean",
+								label: "Enabled",
+								defaultValue: true,
+								hideDefaultValue: true,
+							},
+							name: {
+								type: "string",
+								label: "Name",
+								description: "Name for this server (for your reference and log messages)",
+							},
+							url: {
+								type: "string",
+								label: "URL",
+								description: "URL of the server. Example: http://127.0.0.1:8096",
+							},
+							token: {
+								type: "string",
+								label: "Token",
+								description: "Jellyfin access token (obtained via sign-in) or an API key created in the Jellyfin dashboard. When using an API key, the target username must be set.",
+								masked: true,
+							},
+							deviceId: {
+								type: "string",
+								label: "Device ID",
+								hide: true,
+							},
+							listenForUser: {
+								type: "string",
+								label: "Target Username",
+								description: "Only sessions from this username will be processed. The signed-in user's username is used if this is empty.",
+							},
+							blacklistedLibraries: {
+								type: "array",
+								label: "Blacklisted Libraries",
+								description: "Sessions playing items from these libraries will be ignored",
+								itemSchema: {
+									type: "string",
+									label: "Library Name",
+								},
+							},
+							whitelistedLibraries: {
+								type: "array",
+								label: "Whitelisted Libraries",
+								description: "If set, only sessions playing items from these libraries will be processed",
+								itemSchema: {
+									type: "string",
+									label: "Library Name",
+								},
+							},
+							pollIntervalSeconds: {
+								type: "number",
+								label: "Poll Interval",
+								description: "Seconds between session status checks",
+								defaultValue: 2,
+							},
+							requestTimeoutSeconds: {
+								type: "number",
+								label: "Request Timeout",
+								description: "Seconds to wait before giving up on requests to this server",
+								defaultValue: 10,
+							},
+							retryIntervalSeconds: {
+								type: "number",
+								label: "Retry Interval",
+								description: "Seconds to wait before retrying connection after a failure",
+								defaultValue: 5,
+							},
+							maxRetriesBeforeExit: {
+								type: "number",
+								label: "Max Retries Before Exit",
+								description: "The maximum number of connection retries before the application exits. Use -1 to retry indefinitely.",
+								defaultValue: -1,
+							},
+						},
+					},
+				},
+			},
+		},
 	},
 };
 
@@ -361,7 +451,7 @@ function getDisplayRuleFields() {
 			type: "string",
 			label: "Activity Name",
 			template: true,
-			description: 'Shown next to "Watching" / "Listening to" in Rich Presence. If empty, defaults to app name (Plex).',
+			description: 'Shown next to "Watching" / "Listening to" in Rich Presence. If empty, defaults to the name of the Discord application (Plex by default).',
 		},
 		details: {
 			type: "string",

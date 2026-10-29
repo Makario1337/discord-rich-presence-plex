@@ -14,6 +14,14 @@ export interface TemplateVariableGroup {
 
 export const commonTemplateVariables: TemplateVariable[] = [
 	{
+		name: "Source",
+		description: (
+			<span>
+				Media server type (<Code>plex</Code>, <Code>jellyfin</Code>)
+			</span>
+		),
+	},
+	{
 		name: "MediaType",
 		description: (
 			<span>
@@ -31,9 +39,9 @@ export const commonTemplateVariables: TemplateVariable[] = [
 	},
 	{ name: "LibraryName", description: "Library name" },
 	{ name: "ElapsedDurationMs", description: "Elapsed playback time in milliseconds" },
-	{ name: "Item", description: "Raw item object from Plex" },
-	{ name: "ParentItem", description: "Raw parent item object from Plex" },
-	{ name: "GrandparentItem", description: "Raw grandparent item object from Plex" },
+	{ name: "Item", description: "Raw item object from the media server (structure differs between Plex and Jellyfin)" },
+	{ name: "ParentItem", description: "Raw parent item object from the media server (season/album)" },
+	{ name: "GrandparentItem", description: "Raw grandparent item object from the media server (show/artist)" },
 ];
 
 export const templateVariableGroups: TemplateVariableGroup[] = [
@@ -134,11 +142,11 @@ export const templateFunctions: TemplateFunction[] = [
 	},
 	{
 		name: "formatGenres",
-		signature: "formatGenres(genres []plex.Genre, delimiter string, maxGenres int)",
+		signature: "formatGenres(genres []string | []plex.Genre, delimiter string, maxGenres int)",
 		example: '{{ formatGenres .Item.Genres ", " 3 }}',
 		description: (
 			<span>
-				Joins up to <Code>maxGenres</Code> genre names from the <Code>genres</Code> slice using the <Code>delimiter</Code>.
+				Joins up to <Code>maxGenres</Code> genre names from the <Code>genres</Code> slice using the <Code>delimiter</Code>. Works with raw items from both Plex and Jellyfin.
 			</span>
 		),
 	},

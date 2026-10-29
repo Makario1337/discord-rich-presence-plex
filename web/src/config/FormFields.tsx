@@ -157,6 +157,17 @@ function ArrayField<T extends FieldValues, S extends unknown[]>({ name, control,
 							Add (Plex Auth Flow)
 						</Button>
 					)}
+					{name === "jellyfin.servers" && (
+						<Button
+							leftSection={<IconPlus size={16} />}
+							onClick={() => {
+								document.getElementById("start-jellyfin-auth")?.click(); // TODO: This is a bit hacky
+							}}
+							variant="outline"
+						>
+							Add (Sign In)
+						</Button>
+					)}
 					<Button
 						leftSection={<IconPlus size={16} />}
 						onClick={() => {
@@ -164,7 +175,7 @@ function ArrayField<T extends FieldValues, S extends unknown[]>({ name, control,
 						}}
 						variant="outline"
 					>
-						Add{name === "plex.users" ? " (Manual)" : ""}
+						Add{name === "plex.users" || name === "jellyfin.servers" ? " (Manual)" : ""}
 					</Button>
 				</Flex>
 			</Flex>
